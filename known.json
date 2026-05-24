@@ -160,5 +160,7 @@
   "dnd-hp-tracker",
   "dndbeyond-importer",
   "zoom-map",
-  "ttrpg-soundboard"
+  "ttrpg-soundboard",
+  "world-builder",
+  "ttrpg-campaign-manager"
 ]
