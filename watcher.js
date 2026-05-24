@@ -35,6 +35,23 @@ function repoUrl(repo) {
   return `https://github.com/${repo}`;
 }
 
+function repoOwner(repo) {
+  if (!repo) {
+    return "Unknown";
+  }
+
+  if (repo.startsWith("http")) {
+    try {
+      const parts = new URL(repo).pathname.split("/");
+      return parts[1] || "Unknown";
+    } catch {
+      return "Unknown";
+    }
+  }
+
+  return repo.split("/")[0] || "Unknown";
+}
+
 function communityPluginUrl(plugin) {
   return `https://community.obsidian.md/plugins/${plugin.id}`;
 }
@@ -44,13 +61,17 @@ async function postToDiscord(plugin) {
 
   const payload = {
     username: "Obsidian TTRPG Plugin Watcher",
+
     embeds: [
       {
         title: `New TTRPG Plugin Released: ${plugin.name || plugin.id}`,
+
         url: communityPluginUrl(plugin),
+
         description:
           `A new TTRPG-related plugin has been released to the Obsidian Community Plugins repo.\n\n` +
           `**${description}**`,
+
         color: 5814783,
 
         fields: [
@@ -59,16 +80,19 @@ async function postToDiscord(plugin) {
             value: `[Open Plugin Page](${communityPluginUrl(plugin)})`,
             inline: false
           },
+
           {
-            name: "Author",
-            value: plugin.author || "Unknown",
+            name: "GitHub",
+            value: repoOwner(plugin.repo),
             inline: true
           },
+
           {
             name: "Plugin ID",
             value: plugin.id || "Unknown",
             inline: true
           },
+
           {
             name: "GitHub Repository",
             value: `[View Source](${repoUrl(plugin.repo)})`,
@@ -87,9 +111,11 @@ async function postToDiscord(plugin) {
 
   const response = await fetch(WEBHOOK_URL, {
     method: "POST",
+
     headers: {
       "Content-Type": "application/json"
     },
+
     body: JSON.stringify(payload)
   });
 
