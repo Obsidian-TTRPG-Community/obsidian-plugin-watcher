@@ -30,23 +30,25 @@ function repoUrl(repo) {
 }
 
 async function postToDiscord(plugin) {
+  const description = (plugin.description || "No description").slice(0, 3900);
+
   const payload = {
     username: "Obsidian Plugin Watcher",
     embeds: [
       {
-        title: plugin.name || plugin.id,
+        title: (plugin.name || plugin.id || "Unknown Plugin").slice(0, 250),
         url: repoUrl(plugin.repo),
-        description: plugin.description || "No description",
+        description,
         color: 5814783,
         fields: [
           {
             name: "Author",
-            value: plugin.author || "Unknown",
+            value: (plugin.author || "Unknown").slice(0, 1000),
             inline: true
           },
           {
             name: "Plugin ID",
-            value: plugin.id || "Unknown",
+            value: (plugin.id || "Unknown").slice(0, 1000),
             inline: true
           }
         ]
@@ -64,8 +66,12 @@ async function postToDiscord(plugin) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Discord webhook failed: ${response.status} ${text}`);
+    console.error(`Discord rejected ${plugin.id}: ${response.status} ${text}`);
+    return false;
   }
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  return true;
 }
 
 async function main() {
@@ -93,14 +99,24 @@ async function main() {
   console.log(`Matched plugins: ${matches.length}`);
   console.log(`New plugins: ${newPlugins.length}`);
 
+  const successfullyPosted = [];
+
   for (const plugin of newPlugins) {
     console.log(`Posting: ${plugin.name}`);
-    await postToDiscord(plugin);
+    const ok = await postToDiscord(plugin);
+
+    if (ok) {
+      successfullyPosted.push(plugin.id);
+    }
   }
+
+  const updatedKnown = Array.from(
+    new Set([...known, ...successfullyPosted])
+  );
 
   fs.writeFileSync(
     "known.json",
-    JSON.stringify(matches.map((p) => p.id), null, 2)
+    JSON.stringify(updatedKnown, null, 2)
   );
 }
 
