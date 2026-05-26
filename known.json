@@ -163,5 +163,6 @@
   "ttrpg-soundboard",
   "world-builder",
   "ttrpg-campaign-manager",
-  "obsimap"
+  "obsimap",
+  "rpg-detect-dice-roll"
 ]
