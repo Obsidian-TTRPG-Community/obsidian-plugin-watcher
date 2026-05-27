@@ -1,35 +1,57 @@
-name: Plugin Watcher
+name: TTRPG Plugin Watcher
 
+# Runs once per day at ~8am Adelaide time. Cron is in UTC; GitHub has no timezone
+# support, and Adelaide observes daylight saving, so a single fixed cron can't be
+# exactly 8am all year. This is anchored to ACST (UTC+9:30):
+#   22:30 UTC  =  08:00 in Adelaide during winter (ACST)
+#              =  09:00 in Adelaide during summer (ACDT, ~Oct–Apr)
+# i.e. it lands at 8am for ~half the year and 9am for the other half.
+# If you want a true 8am year-round, replace the single line below with both:
+#   - cron: "30 22 * * *"   # 08:00 ACST  (winter, ~Apr–Oct)
+#   - cron: "30 21 * * *"   # 08:00 ACDT  (summer, ~Oct–Apr)
+# (Two lines means it'll fire at 8am AND 9am during the few changeover weeks, but
+# the watcher is idempotent — the second run just finds nothing new and posts
+# nothing — so that overlap is harmless.)
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "30 22 * * *"
+  # Allows you to trigger a run by hand from the Actions tab without waiting for
+  # the daily schedule (handy for the first catch-up run that posts randomness +
+  # town-forge). This does not add extra automatic runs.
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-permissions:
-  contents: write
+# Prevent overlapping runs if one is somehow still going when the next fires.
+concurrency:
+  group: ttrpg-plugin-watcher
+  cancel-in-progress: false
 
 jobs:
-  run-watcher:
+  watch:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write   # needed so the workflow can commit the updated known.json
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "20"
 
-      - run: node watcher.js
+      - name: Run watcher
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: node watcher.js
 
-      - name: Commit known plugins
+      - name: Commit updated known.json
         run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add known.json
-          git commit -m "Update known plugins" || exit 0
-          git push
+          if [[ -n "$(git status --porcelain known.json)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add known.json
+            git commit -m "chore: update known.json [skip ci]"
+            git push
+          else
+            echo "known.json unchanged; nothing to commit."
+          fi
